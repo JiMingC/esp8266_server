@@ -12,6 +12,7 @@
 #define LINE     10
 #define DEBUG    1
 
+#define TCP_PORT    7070
 int main()
 {
 	//创建socket套接字
@@ -29,11 +30,11 @@ int main()
 	int ret=0;
 	struct sockaddr_in seraddr={0};
 	seraddr.sin_family=AF_INET;
-	seraddr.sin_port=htons(8888);
-	//seraddr.sin_addr.s_addr=inet_addr("192.168.59.131");
+	seraddr.sin_port=htons(TCP_PORT);
+//	seraddr.sin_addr.s_addr=inet_addr("175.178.82.209");
 	//seraddr.sin_addr.s_addr=inet_addr("150.109.115.216");
 	//seraddr.sin_addr.s_addr=inet_addr("172.0.0.1");
-	seraddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	seraddr.sin_addr.s_addr = htons(INADDR_ANY);
 
     int on = 1;
     if(setsockopt(serfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int)) < 0)
@@ -49,6 +50,7 @@ int main()
 
 	LOGD("bind success\n");
 
+    LOGD("bind ip:%s\n", inet_ntoa(seraddr.sin_addr));
 	//通过调用listen将套接字设置为监听模式
 	int lis=0;
 	lis=listen(serfd,LINE);
