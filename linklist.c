@@ -20,7 +20,7 @@ linklist init_list(void) {
     return head;
 }
 
-linklist new_client(int ID, int fd, struct sockaddr_in addr) {
+linklist new_client(int ID, int fd, struct sockaddr_in addr, int tick) {
     linklist new_cli = calloc(1, sizeof(listnode));
 
     if (new_cli == NULL) {
@@ -30,6 +30,7 @@ linklist new_client(int ID, int fd, struct sockaddr_in addr) {
         new_cli->ID = ID;
         new_cli->confd = fd;
         new_cli->addr = addr;
+        new_cli->time = tick;
 
         INIT_LIST_HEAD(&new_cli->list);
     }

@@ -40,8 +40,9 @@ typedef struct client {
     struct sockaddr_in addr;
 
     struct list_head list;
+    int time;
 
 }listnode, *linklist;
 
 linklist init_list(void);
-linklist new_client(int ID, int fd, struct sockaddr_in addr);
+linklist new_client(int ID, int fd, struct sockaddr_in addr, int tick);

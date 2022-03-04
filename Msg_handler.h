@@ -18,6 +18,7 @@ typedef enum Net_Logical_Address {
 typedef enum
 {
     EN_MSG_ERROR                  = 0x0,
+    EN_MSG_HEARTBEAT,
     EN_MSG_GIVE_USRID             = 0x10,
     EN_MSG_GET_USRNAME            = 0x78,
     EN_MSG_GIVE_USRNAME           = 0x79,
@@ -33,7 +34,7 @@ typedef struct net_message {
     /* net message opcode */
     unsigned char enOpcode;
     /* net sender ID*/
-    unsigned int netId;
+    unsigned short netId;
     /* Length in bytes of body, range [0, CEC_MESSAGE_BODY_MAX_LENGTH-3] */
     int body_len;
     unsigned char body[NET_MESSAGE_BODY_MAX_LENGTH-2];

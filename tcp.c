@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <time.h>
+#include <sys/time.h>
 #include "linklist.h"
 #include "typedef.h"
 
@@ -13,8 +15,11 @@
 #define DEBUG    1
 
 #define TCP_PORT    7070
+
+
 int main()
 {
+    int tick = 0;
 	//创建socket套接字
 	int serfd=0;
 	serfd=socket(AF_INET,SOCK_STREAM,0);
@@ -78,7 +83,14 @@ int main()
     net_message_t *srcNetMsg;
     srcNetMsg = (net_message_t *)calloc(1,NET_MESSAGE_MAX_LENGTH);
 
+    struct timeval timeout;
+
     while(1) {
+        timeout.tv_sec = 2;
+        timeout.tv_usec = 0;
+        tick++;
+        if (tick > 10000)
+            tick = 0;
         //bzero 
         FD_ZERO(&rset);
 
@@ -96,7 +108,7 @@ int main()
         }
 
         //select for wait fd respond
-        select(maxfd+1, &rset, NULL, NULL, NULL);
+        select(maxfd+1, &rset, NULL, NULL, &timeout);
 
         //if new connect msg
         if (FD_ISSET(serfd, &rset)) {
@@ -117,11 +129,11 @@ int main()
             LOGD("newID:%d\n", newID);
             netsendMsgUsrID(confd, newID);
 
-            listnode *new_cli = new_client(newID, confd, clientaddr);
+            listnode *new_cli = new_client(newID, confd, clientaddr, tick);
             if(new_cli == NULL) {
                 LOGD("new user create fail\n");
             } else {
-                LOGI("[%s:%hu]\n", inet_ntoa(new_cli->addr.sin_addr), ntohs(new_cli->addr.sin_port));
+                LOGI("[%s:%hu tick:%d]\n", inet_ntoa(new_cli->addr.sin_addr), ntohs(new_cli->addr.sin_port), new_cli->time);
                 list_add_tail(&new_cli->list, &head->list);
             }
         }
@@ -143,15 +155,26 @@ int main()
                     break;
                 } else {
                     LOGD("msg comming!!!\n");
+                    p->time = tick;
                     memset(srcNetMsg,0,NET_MESSAGE_MAX_LENGTH);
                     netparseMsg(srcNetMsg, msg);
                     //nethandlerMsg(srcNetMsg);
                     if (srcNetMsg->enOpcode == 0x79) {
                         strcpy(p->usrname, srcNetMsg->body);
                         LOGI("%s join!!\n", p->usrname);
-                    }else{
+                    } else if (srcNetMsg->enOpcode == EN_MSG_HEARTBEAT){
+                        LOGI("Heartbeat\n");
+                    } else{
                         LOGI("msg:%s\n", srcNetMsg->body);
                     }
+                }
+            } else {
+                if ((p->time < (tick - 5)) || ((tick - p->time) > 9995)) {
+                    LOGD("p->time:%d, tick:%d\n", p->time, tick);
+                    LOGD("[%s:%hu] is timeout disconnect\n", inet_ntoa(p->addr.sin_addr), ntohs(p->addr.sin_port));
+                    list_del(pos);
+                    free(p);
+                    
                 }
             }
         }

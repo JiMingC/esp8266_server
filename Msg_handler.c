@@ -42,11 +42,11 @@ int netparseMsg(net_message_t *pstNetMsg, unsigned char* buf) {
     pstNetMsg->initiator = buf[0];
     pstNetMsg->destination = buf[1];
     pstNetMsg->enOpcode = (Net_MSG_Opcode_LIST)buf[2];
-    pstNetMsg->netId = (buf[3] << 24) + (buf[4] << 16) + (buf[5] << 8) + buf[6];
-    pstNetMsg->body_len = buf[7];
+    pstNetMsg->netId = (buf[3] << 8) + (buf[4]);
+    pstNetMsg->body_len = buf[5];
     for(i = 0 ;i< pstNetMsg->body_len;i++)
     {
-       pstNetMsg->body[i] = buf[i + 8];
+       pstNetMsg->body[i] = buf[i + 6];
     }
     LOGD("0:%x 1:%x 2:%x 3:%x 4:%x 5:%x 6:%x 7:%x\n",
             buf[0],buf[1],buf[2],buf[3],buf[4],buf[5],buf[6],buf[7]);
@@ -62,14 +62,14 @@ int netgetMsgFromBuff(net_message_t *pstNetMsg, unsigned char *buf) {
     pstNetMsg->initiator = buf[0];
     pstNetMsg->destination = buf[1];
     pstNetMsg->enOpcode = (Net_MSG_Opcode_LIST)buf[2];
-    pstNetMsg->netId = (buf[3] << 24) + (buf[4] << 16) + (buf[5] << 8) + buf[6];
-    pstNetMsg->body_len = buf[7];
+    pstNetMsg->netId = (buf[3] << 8) + buf[4];
+    pstNetMsg->body_len = buf[5];
     for(i = 0 ;i< pstNetMsg->body_len;i++)
     {
-       pstNetMsg->body[i] = (char)buf[i + 8];
+       pstNetMsg->body[i] = (char)buf[i + 6];
     }
     pstNetMsg->body[i + 1] = '\0';
-    return pstNetMsg->body_len + 9;
+    return pstNetMsg->body_len + 7;
 }
 
 void pr_netMsg(net_message_t *srcNetMsg) {
@@ -110,11 +110,9 @@ int nethandlerReport(int confd, net_message_t *srcNetMsg) {
     buf[0] = srcNetMsg->destination;
     buf[1] = srcNetMsg->initiator;
     buf[2] = srcNetMsg->enOpcode + 1;
-    buf[3] = (net_info.usrID >> 24);
-    buf[4] = (net_info.usrID >> 16);
-    buf[5] = (net_info.usrID >> 8) ;
-    buf[6] = USRID;
-    buf[7] = 0;
+    buf[3] = (net_info.usrID >> 8) ;
+    buf[4] = USRID;
+    buf[5] = 0;
     switch((Net_MSG_Opcode_LIST)srcNetMsg->enOpcode) {
         case EN_MSG_GET_USRNAME:
             nethandlerReport_String(buf, net_info.usrNAME, strlen(net_info.usrNAME));
@@ -163,20 +161,16 @@ int netsendMsgUsrID(int fd, int ID) {
     buf[0] = 0x1;
     buf[1] = 0x2;
     buf[2] = EN_MSG_GIVE_USRID;
-    buf[3] = 1;
-    buf[4] = 2;
-    buf[5] = 3;
-    buf[6] = 4;
-    buf[7] = 4;
-    buf[8] = ID >> 24 & 0xff;
-    buf[9] = ID >> 16 & 0xff;
-    buf[10] = ID >> 8 & 0xff;
-    buf[11] = ID >> 0 & 0xff;
+    buf[3] = 0xFF;
+    buf[4] = 0xEE;
+    buf[5] = 2;
+    buf[6] = ID >> 8 & 0xff;
+    buf[7] = ID;
 
     printf("NewID:0x%x\n", ID);
-    printf("send ID: 0x%x 0x%x 0x%x 0x%x\n", buf[8], buf[9],buf[10], buf[11]);
+    printf("send ID: 0x%x 0x%x\n", buf[6], buf[7]);
 
-    return write(fd, (char*)buf, 12);
+    return write(fd, (char*)buf, 8);
 }
 
 int netsetID(int ID) {
