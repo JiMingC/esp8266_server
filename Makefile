@@ -7,7 +7,7 @@ SRCS = $(wildcard $(foreach S,$(SUBDIRS), $S/*.c $S/*.cpp))
 OBJS = $(SRCS:.c = .o)
 
 INCLUDES = $(foreach S,$(SUBDIRS),-I$S)
-CCFAGS = -g -Wall -O0 $(INCLUDES)
+CCFAGS = -g -Wall -O0 $(INCLUDES) -I/home/ubuntu/esp8266_server/include
 
 TARGET = networt_test
 

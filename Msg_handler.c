@@ -1,4 +1,4 @@
-#include "Msg_handler.h"
+#include "include/Msg_handler.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -41,16 +41,18 @@ int netparseMsg(net_message_t *pstNetMsg, unsigned char* buf) {
         return -1;
     pstNetMsg->initiator = buf[0];
     pstNetMsg->destination = buf[1];
-    pstNetMsg->enOpcode = (Net_MSG_Opcode_LIST)buf[2];
-    pstNetMsg->netId = (buf[3] << 8) + (buf[4]);
-    pstNetMsg->body_len = buf[5];
+    pstNetMsg->enOpcode = (Net_MSG_Opcode_LIST)buf[3];
+    pstNetMsg->netId = (buf[4] << 8) + (buf[5]);
+    pstNetMsg->body_len = buf[6] << 8 | buf[7];
     for(i = 0 ;i< pstNetMsg->body_len;i++)
     {
-       pstNetMsg->body[i] = buf[i + 6];
+       pstNetMsg->body[i] = buf[i + 8];
     }
-    LOGD("0:%x 1:%x 2:%x 3:%x 4:%x 5:%x 6:%x 7:%x\n",
+    if (pstNetMsg->enOpcode != EN_MSG_HEARTBEAT){
+        LOGD("0:%x 1:%x 2:%x 3:%x 4:%x 5:%x 6:%x 7:%x\n",
             buf[0],buf[1],buf[2],buf[3],buf[4],buf[5],buf[6],buf[7]);
-    pr_netMsg(pstNetMsg);
+        pr_netMsg(pstNetMsg);
+    }
     return 0;
 }
 
@@ -128,8 +130,10 @@ int nethandlerReceive() {
 }
 
 int nethandlerMsg(int confd, net_message_t *srcNetMsg) {
-    if (srcNetMsg->enOpcode == EN_MSG_NONE) {
-        nethandlerReceive();
+    if (srcNetMsg->enOpcode == EN_MSG_HEARTBEAT) {
+        //nethandlerReceive();
+    } else if (srcNetMsg->enOpcode%2) {
+        printf("~[reply]: enOpcode[%d]~\n", srcNetMsg->enOpcode);
     } else {
         nethandlerReport(confd, srcNetMsg);
     }
@@ -160,20 +164,64 @@ int netsendMsgUsrID(int fd, int ID) {
     unsigned char buf[12] = {0};
     buf[0] = 0x1;
     buf[1] = 0x2;
-    buf[2] = EN_MSG_GIVE_USRID;
-    buf[3] = 0xFF;
-    buf[4] = 0xEE;
-    buf[5] = 2;
-    buf[6] = ID >> 8 & 0xff;
-    buf[7] = ID;
+    buf[2] = 0x0;
+    buf[3] = EN_MSG_GIVE_USRID;
+    buf[4] = 0xFF;
+    buf[5] = 0xEE;
+    buf[6] = 0;
+    buf[7] = 2;
+    buf[8] = ID >> 8 & 0xff;
+    buf[9] = ID;
 
-    printf("NewID:0x%x\n", ID);
-    printf("send ID: 0x%x 0x%x\n", buf[6], buf[7]);
+    //printf("NewID:0x%x\n", ID);
+    //printf("send ID: 0x%x 0x%x\n", buf[6], buf[7]);
 
-    return write(fd, (char*)buf, 8);
+    return write(fd, (char*)buf, 10);
 }
 
 int netsetID(int ID) {
     USRID = ID;
     return 0;
+}
+
+int netsendMsg(int fd, char* msgbody, int len) {
+    char buf[200];
+    buf[0] = 0x0;
+    buf[1] = 0x2;
+    buf[2] = 0x0;
+    buf[3] = EN_MSG_SINGLE_SEND;
+    buf[4] = 0xFF;
+    buf[5] = 0xEE;
+    buf[6] = len >> 8;
+    buf[7] = len;
+    memcpy(buf+8, msgbody, len);
+    buf[8+len+1] = '\0';
+    
+    return write(fd, (char*)buf, len+6+1);
+}
+
+int netsendTFTbuf(int fd, unsigned short *TFTbuf, int size) {
+    unsigned char buf[MSGBUF_MAX];
+    int pos = 0;
+    int left = 0;
+    buf[0] = 0x0;
+    buf[1] = 0x2;
+    buf[2] = 0x0; //null
+    buf[3] = EN_MSG_ESP_TFTSHOW;
+    buf[4] = 0xFF;
+    buf[5] = 0xEE;
+    buf[6] = size >> 8;
+    buf[7] = size;
+    left = size + 8;
+    LOGD("%d\n", buf[6] << 8 | buf[7]);
+    memcpy(buf+8, (unsigned char*)TFTbuf, size);
+    if (left > 1024) {
+        while (left > 0) {
+            write(fd, (char*)buf + pos, left > 1024 ? 1024 : left);
+            pos += 1024;
+            left -= 1024;
+        }
+        return size;
+    } else
+        return write(fd, (char*)buf, size+8);
 }

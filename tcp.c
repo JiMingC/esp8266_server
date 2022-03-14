@@ -7,15 +7,81 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include <sys/time.h>
-#include "linklist.h"
-#include "typedef.h"
+#include "include/linklist.h"
+#include "include/typedef.h"
+#include "include/utf_handle.h"
 
-#include "Msg_handler.h"
+#include "include/Msg_handler.h"
 #define LINE     10
 #define DEBUG    1
 
 #define TCP_PORT    7070
 
+#define MEUN_HOME               0x0
+#define MEUN_SENDMSG            0x1
+#define MEUN_EspClientCTL       0x3
+#define MEUN_Esp_TFTutfShow     0x31
+#define MEUN_SENDMSG_CLIENT     0x11
+
+unsigned char func  = 0;
+unsigned short level = 0;
+unsigned short terminalinfopr(unsigned short level) {
+    short ret = 0;
+    switch(level) {
+        case MEUN_HOME:
+        printf("*[HOME] 1:SendMsg 2:CheckInfo 3:EspClient-Ctrl*\n");
+        break;
+        case MEUN_SENDMSG:
+        printf("*[SendMsg] 1:client 2:broadcast 0:return*\n");
+        break;
+        case MEUN_EspClientCTL:
+        printf("*[EspClient-Ctrl] 1:TFTutfShow 0:return*\n");
+        break;
+        case MEUN_Esp_TFTutfShow:
+        case MEUN_SENDMSG_CLIENT:
+        func = level;
+        printf("*[client] select one client:*\n");
+        break;
+        default:
+        ret = 1;
+        break;
+    }
+    return ret;
+}
+unsigned short terminalhandle(unsigned short level, char *msg){
+    if (level == MEUN_SENDMSG_CLIENT || level == MEUN_Esp_TFTutfShow) {
+        if (msg[0] == '0') {
+            level >>=  4;
+            terminalinfopr(level);
+        } else if (msg[0] > '9') {
+            return level;
+        } else {
+            level = 0;
+            for (int i = 0; msg[i] != '\n'; i++) {
+                level = level * 10 + msg[i] - '0';
+            }
+            level |= 0x8000;
+        }
+    } else if (level == 0x7FFF) {
+        //if (msg[0] == 'q' && msg[1] == '!') {
+        //    level = 0x5;
+        //    terminalinfopr(level);
+        //}
+        
+    } else {
+        if (msg[0] > '3')
+            return level;
+        else if (msg[0] == '0') {
+            level >>=  4;
+            terminalinfopr(level);
+        } else {
+            if (!terminalinfopr((level << 4) | (msg[0] - 48)))
+                level = (level << 4) | (msg[0] - 48);
+        }
+    }
+    LOGD("return :%x\n", level);
+    return level;
+}
 
 int main()
 {
@@ -83,11 +149,14 @@ int main()
     net_message_t *srcNetMsg;
     srcNetMsg = (net_message_t *)calloc(1,NET_MESSAGE_MAX_LENGTH);
 
-    struct timeval timeout;
+    struct list_head *pos;
+    linklist p, t;
 
+    struct timeval timeout;
+    terminalinfopr(level);
     while(1) {
-        timeout.tv_sec = 2;
-        timeout.tv_usec = 0;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 1000*10;
         tick++;
         if (tick > 10000)
             tick = 0;
@@ -96,10 +165,9 @@ int main()
 
         //add listen fd
         FD_SET(serfd,&rset);
+        FD_SET(0, &rset);
 
         //queue list, add all fd into set
-        struct list_head *pos;
-        linklist p;
         list_for_each(pos,&head->list) {
             p = list_entry(pos, listnode, list);
             FD_SET(p->confd,&rset);
@@ -154,11 +222,11 @@ int main()
                     free(p);
                     break;
                 } else {
-                    LOGD("msg comming!!!\n");
+                    //LOGD("msg comming!!!\n");
                     p->time = tick;
                     memset(srcNetMsg,0,NET_MESSAGE_MAX_LENGTH);
                     netparseMsg(srcNetMsg, msg);
-                    //nethandlerMsg(srcNetMsg);
+                    nethandlerMsg(p->confd, srcNetMsg);
                     if (srcNetMsg->enOpcode == 0x79) {
                         strcpy(p->usrname, srcNetMsg->body);
                         LOGI("%s join!!\n", p->usrname);
@@ -169,7 +237,7 @@ int main()
                     }
                 }
             } else {
-                if ((p->time < (tick - 5)) || ((tick - p->time) > 9995)) {
+                if ((p->time < (tick - 1000)) || ((tick - p->time) > 9000)) {
                     LOGD("p->time:%d, tick:%d\n", p->time, tick);
                     LOGD("[%s:%hu] is timeout disconnect\n", inet_ntoa(p->addr.sin_addr), ntohs(p->addr.sin_port));
                     list_del(pos);
@@ -178,34 +246,69 @@ int main()
                 }
             }
         }
+
+        if (FD_ISSET(0, &rset)) {
+            char msg[100];
+            int n;
+            bzero(msg,100);
+            n = read(0, msg, 100);
+            if (n == 0|| n == 1) {
+                memset(msg, 0 , 100);
+                //printf("NULL msg\n");
+            } else {
+                level = terminalhandle(level, msg);
+                LOGD("terminalhandle return level:%d\n", level);
+                int idx = 0;
+                if (level == MEUN_SENDMSG_CLIENT || level == MEUN_Esp_TFTutfShow) {
+                    printf("*              Online dev list:*\n");
+                    list_for_each(pos, &head->list) {
+                        idx++;
+                        t = list_entry(pos, listnode,list);
+                        printf("*              #[%d] ID:0x%4x (%d)*\n",idx, t->ID, t->ID);
+                    }
+                    printf("*              Dev total:%d, select the recvier(0 for return):*\n", idx);
+                } else if (level >> 15) {
+                    list_for_each(pos, &head->list) {
+                        idx++;
+                        if (idx == (level & 0x7FFF)) {
+                            t = list_entry(pos, listnode,list);
+                            if (func == MEUN_Esp_TFTutfShow)
+                                printf("*Input your (utf)msg to ID:0x%4x(q! for exit):*\n",t->ID);
+                            else if (func == MEUN_SENDMSG_CLIENT)
+                                printf("*Input your (ascii)msg to ID:0x%4x(q! for exit):*\n",t->ID);
+                            level = 0x7FFF; 
+                        } else {
+                            printf("*invaild input, input again:*\n");
+                            level = 0x5;
+                        }
+
+                    }
+                    
+                } else if (level == 0x7FFF) {
+                    if (msg[0] == 'q' && msg[1] == '!') {
+                        level = 0x1;
+                        terminalinfopr(level);
+                    } else if (msg[0] != '\n' || msg[0] != '\r'){
+                        if (func == MEUN_Esp_TFTutfShow) {
+                            printf("*Input your (utf)msg to ID:0x%4x(q! for exit):*\n",t->ID);
+                            unsigned short TFTbuf[MSGBUF_MAX];
+                            int len = utfToTFTbuf(msg, TFTbuf);
+                            //netsendMsg(t->confd, msg, strlen(msg));
+                            LOGD("%d\n", len);
+                            netsendTFTbuf(t->confd, TFTbuf, sizeof(short)*len);
+                        } else if (func == MEUN_SENDMSG_CLIENT) {
+                            printf("*Input your (ascii)msg to ID:0x%4x(q! for exit):*\n",t->ID);
+                            netsendMsg(t->confd, msg, strlen(msg));
+                        }
+                        //printf("*Input your msg to ID:0x%4x(q! for exit):*\n", t->ID);
+                    } else {
+                        bzero(msg,100);
+                    }
+                }
+            }
+        }
     }
 
-    /*
-	//调用recv接收客户端的消息
-	while(1)
-	{
-		int rev=0;
-		int sed=0;
-		char buf[1024]={0};
-		rev=recv(confd,buf,sizeof(buf),0);
-		if(rev>0)
-		{
-			printf("本次收到了%d个字节\n",rev);
-			printf("receive: %s\n",buf);
-		}
-	
-		memset(buf,0,sizeof(buf));
-		gets(buf);
-		sed=send(confd,buf,strlen(buf),0);
-		if(sed<0)
-		{
-			perror("send failed");
-			close(serfd);
-			return -1;
-		}
-		printf("send success\n");
-	}
-    */
 	close(serfd);
 	
 	return 0;

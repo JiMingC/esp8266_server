@@ -3,12 +3,14 @@
 
 #include <stdlib.h>
 #include "typedef.h"
+#include <unistd.h>
 #define NET_MESSAGE_BODY_MAX_LENGTH 128
 #define NET_MESSAGE_MAX_LENGTH      135
 #define NET_MESSAGE_HEAD_LEN        8
 
 #define NET_MESSAGE_INFO_LEN        32
 
+#define MSGBUF_MAX  5120
 typedef enum Net_Logical_Address {
     NET_ADDR_SERVER = 0,
     NET_ADDR_PC = 1,
@@ -18,8 +20,11 @@ typedef enum Net_Logical_Address {
 typedef enum
 {
     EN_MSG_ERROR                  = 0x0,
-    EN_MSG_HEARTBEAT,
+    EN_MSG_HEARTBEAT              = 0x1,
+    EN_MSG_SINGLE_SEND            = 0x2,
+    EN_MSG_SINGLE_SEND_REPLY      = 0x3,
     EN_MSG_GIVE_USRID             = 0x10,
+    EN_MSG_ESP_TFTSHOW            = 0x12,
     EN_MSG_GET_USRNAME            = 0x78,
     EN_MSG_GIVE_USRNAME           = 0x79,
     EN_MSG_NONE                   = 0xff,
@@ -53,4 +58,7 @@ Net_MSG_Opcode_LIST netgetMsgOpcodeType(net_message_t *srcNetMsg);
 int netsendMsgUsrID(int fd, int ID);
 void pr_netMsg(net_message_t *srcNetMsg);
 void pr();
+int netsendMsg(int fd, char* buf, int len);
+int nethandlerMsg(int confd, net_message_t *srcNetMsg);
+int netsendTFTbuf(int fd, unsigned short *TFTbuf, int size);
 #endif // MSG_HANDLER_H
