@@ -253,7 +253,7 @@ int fullGB2132buf(unsigned short* TFTbuf, int *table, short array_size, int flag
                 c2 = bin_data[table[i] + j * 2 + 1];
                 offset = j * array_size + i + 8;
 
-                TFTbuf[offset] = c1 << 8 | c2;
+                TFTbuf[offset] = c2 << 8 | c1;
                 printf("%x ", TFTbuf[offset]);
             }
             printf("\n");

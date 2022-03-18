@@ -303,6 +303,9 @@ int main()
                             printf("*Input your (utf)msg to ID:0x%4x(compress)(q! for exit):*\n",t->ID);
                             unsigned short TFTbuf[MSGBUF_MAX];
                             int len = utfToTFTbuf(msg, TFTbuf, 1);
+                            for (int i = 0; i < len; i++) {
+                                printf("%d 0x%x\n", i , TFTbuf[i]);
+                            }
                             netsendTFTbuf(t->confd, TFTbuf, sizeof(short)*len);
                         } else if (func == MEUN_SENDMSG_CLIENT) {
                             printf("*Input your (ascii)msg to ID:0x%4x(q! for exit):*\n",t->ID);
