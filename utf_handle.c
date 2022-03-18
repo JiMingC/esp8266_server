@@ -203,15 +203,15 @@ int fullGB2132buf(unsigned short* TFTbuf, int *table, short array_size, int flag
     }
     unsigned char c1, c2;
     int offset = 0;
-    TFTbuf[0] = 0xaa; //header+opt
-    TFTbuf[1] = array_size*16; //width
-    TFTbuf[2] = 16; //high
-    TFTbuf[3] = 0;  //buf total size
-    TFTbuf[4] = 0xFFFF; //point_color
-    TFTbuf[5] = 0x0000; //back_color
-    TFTbuf[6] = 0x0000; //start_x
-    TFTbuf[7] = 0x0000; //start_y
-    if (flag) {
+    if (!flag) {
+        TFTbuf[0] = 0xaa; //header+opt
+        TFTbuf[1] = array_size*16; //width
+        TFTbuf[2] = 16; //high
+        TFTbuf[3] = 0;  //buf total size
+        TFTbuf[4] = 0xFFFF; //point_color
+        TFTbuf[5] = 0x0000; //back_color
+        TFTbuf[6] = 0x0000; //start_x
+        TFTbuf[7] = 0x0000; //start_y
         for (int i = 0; i < array_size; i++) {
             for (int j = 0; j < FONTS_H; j++) {
                 c1 = bin_data[table[i] + j * 2];
@@ -239,11 +239,19 @@ int fullGB2132buf(unsigned short* TFTbuf, int *table, short array_size, int flag
             }
         }
     } else {
+        TFTbuf[0] = 0xab; //header+opt
+        TFTbuf[1] = array_size*16; //width
+        TFTbuf[2] = 16; //high
+        TFTbuf[3] = 0;  //buf total size
+        TFTbuf[4] = 0xFFFF; //point_color
+        TFTbuf[5] = 0x0000; //back_color
+        TFTbuf[6] = 0x0000; //start_x
+        TFTbuf[7] = 0x0000; //start_y
         for (int i = 0; i < array_size; i++) {
             for (int j = 0; j < FONTS_H; j++) {
                 c1 = bin_data[table[i] + j * 2];
                 c2 = bin_data[table[i] + j * 2 + 1];
-                offset = j * array_size + i;
+                offset = j * array_size + i + 8;
 
                 TFTbuf[offset] = c1 << 8 | c2;
                 printf("%x ", TFTbuf[offset]);
@@ -260,9 +268,9 @@ int fullGB2132buf(unsigned short* TFTbuf, int *table, short array_size, int flag
 
 void printfGB2132buf(unsigned short *TFTbuf,int len, int flag) {
     for (int i = 0; i < FONTS_H; i++) {
-        unsigned short c = TFTbuf[i * len];
+        unsigned short c = TFTbuf[i * len + 8];
         for (int j = 0; j < FONTS_W *len; j++) {
-            if (flag) {
+            if (!flag) {
                 if (TFTbuf[j + i * FONTS_W * len + 8] == POINT_COLOR) {
                     printf("*");
                 } else {
@@ -277,13 +285,13 @@ void printfGB2132buf(unsigned short *TFTbuf,int len, int flag) {
                 c <<= 1;
             }
             if ((j+1) % 16 == 0)
-                c = TFTbuf[i * len + (j+1) / 16];
+                c = TFTbuf[i * len + (j+1) / 16 + 8];
         }
         printf("\n");
     }
 }
 
-int utfToTFTbuf(unsigned char *msg, unsigned short *TFTbuf) {
+int utfToTFTbuf(unsigned char *msg, unsigned short *TFTbuf, bool iscompress) {
     if (msg == NULL || TFTbuf == NULL) {
         return 0;
     }
@@ -318,8 +326,8 @@ int utfToTFTbuf(unsigned char *msg, unsigned short *TFTbuf) {
     }
     printf("\n");
 #endif 
-    int ret = fullGB2132buf(TFTbuf, table_idx, cc_num, 1);
+    int ret = fullGB2132buf(TFTbuf, table_idx, cc_num, iscompress);
 
-    printfGB2132buf(TFTbuf,cc_num, 1);
+    printfGB2132buf(TFTbuf,cc_num, iscompress);
     return ret;
 }

@@ -21,6 +21,7 @@
 #define MEUN_SENDMSG            0x1
 #define MEUN_EspClientCTL       0x3
 #define MEUN_Esp_TFTutfShow     0x31
+#define MEUN_Esp_TFTutfShow_cp  0x32
 #define MEUN_SENDMSG_CLIENT     0x11
 
 unsigned char func  = 0;
@@ -35,9 +36,10 @@ unsigned short terminalinfopr(unsigned short level) {
         printf("*[SendMsg] 1:client 2:broadcast 0:return*\n");
         break;
         case MEUN_EspClientCTL:
-        printf("*[EspClient-Ctrl] 1:TFTutfShow 0:return*\n");
+        printf("*[EspClient-Ctrl] 1:TFTutfShow 2:TFTutfShow(compress) 0:return*\n");
         break;
         case MEUN_Esp_TFTutfShow:
+        case MEUN_Esp_TFTutfShow_cp:
         case MEUN_SENDMSG_CLIENT:
         func = level;
         printf("*[client] select one client:*\n");
@@ -49,8 +51,8 @@ unsigned short terminalinfopr(unsigned short level) {
     return ret;
 }
 unsigned short terminalhandle(unsigned short level, char *msg){
-    if (level == MEUN_SENDMSG_CLIENT || level == MEUN_Esp_TFTutfShow) {
-        if (msg[0] == '0') {
+    if (level == MEUN_SENDMSG_CLIENT || level == MEUN_Esp_TFTutfShow || level == MEUN_Esp_TFTutfShow_cp) {
+        if (msg[0] == '0' || msg[1] > ' ') {
             level >>=  4;
             terminalinfopr(level);
         } else if (msg[0] > '9') {
@@ -79,7 +81,7 @@ unsigned short terminalhandle(unsigned short level, char *msg){
                 level = (level << 4) | (msg[0] - 48);
         }
     }
-    LOGD("return :%x\n", level);
+    LOGD("return :0x%x\n", level);
     return level;
 }
 
@@ -259,7 +261,7 @@ int main()
                 level = terminalhandle(level, msg);
                 LOGD("terminalhandle return level:%d\n", level);
                 int idx = 0;
-                if (level == MEUN_SENDMSG_CLIENT || level == MEUN_Esp_TFTutfShow) {
+                if (level == MEUN_SENDMSG_CLIENT || level == MEUN_Esp_TFTutfShow ||  level == MEUN_Esp_TFTutfShow_cp) {
                     printf("*              Online dev list:*\n");
                     list_for_each(pos, &head->list) {
                         idx++;
@@ -274,6 +276,8 @@ int main()
                             t = list_entry(pos, listnode,list);
                             if (func == MEUN_Esp_TFTutfShow)
                                 printf("*Input your (utf)msg to ID:0x%4x(q! for exit):*\n",t->ID);
+                            else if (func == MEUN_Esp_TFTutfShow_cp)
+                                printf("*Input your (utf)msg to ID:0x%4x (compress)(q! for exit):*\n",t->ID);
                             else if (func == MEUN_SENDMSG_CLIENT)
                                 printf("*Input your (ascii)msg to ID:0x%4x(q! for exit):*\n",t->ID);
                             level = 0x7FFF; 
@@ -289,12 +293,16 @@ int main()
                         level = 0x1;
                         terminalinfopr(level);
                     } else if (msg[0] != '\n' || msg[0] != '\r'){
+                        LOGD("func:0x%x\n", func);
                         if (func == MEUN_Esp_TFTutfShow) {
                             printf("*Input your (utf)msg to ID:0x%4x(q! for exit):*\n",t->ID);
                             unsigned short TFTbuf[MSGBUF_MAX];
-                            int len = utfToTFTbuf(msg, TFTbuf);
-                            //netsendMsg(t->confd, msg, strlen(msg));
-                            LOGD("%d\n", len);
+                            int len = utfToTFTbuf(msg, TFTbuf, 0);
+                            netsendTFTbuf(t->confd, TFTbuf, sizeof(short)*len);
+                        } else if (func == MEUN_Esp_TFTutfShow_cp) {
+                            printf("*Input your (utf)msg to ID:0x%4x(compress)(q! for exit):*\n",t->ID);
+                            unsigned short TFTbuf[MSGBUF_MAX];
+                            int len = utfToTFTbuf(msg, TFTbuf, 1);
                             netsendTFTbuf(t->confd, TFTbuf, sizeof(short)*len);
                         } else if (func == MEUN_SENDMSG_CLIENT) {
                             printf("*Input your (ascii)msg to ID:0x%4x(q! for exit):*\n",t->ID);

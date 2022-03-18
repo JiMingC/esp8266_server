@@ -186,6 +186,7 @@ int netsetID(int ID) {
 
 int netsendMsg(int fd, char* msgbody, int len) {
     char buf[200];
+    len += 2;
     buf[0] = 0x0;
     buf[1] = 0x2;
     buf[2] = 0x0;
@@ -194,10 +195,12 @@ int netsendMsg(int fd, char* msgbody, int len) {
     buf[5] = 0xEE;
     buf[6] = len >> 8;
     buf[7] = len;
-    memcpy(buf+8, msgbody, len);
-    buf[8+len+1] = '\0';
+    buf[8] = 0xa0;
+    buf[9] = 0x0;
+    memcpy(buf+10, msgbody, len);
+    buf[10+len+1] = '\0';
     
-    return write(fd, (char*)buf, len+6+1);
+    return write(fd, (char*)buf, len+10);
 }
 
 int netsendTFTbuf(int fd, unsigned short *TFTbuf, int size) {
