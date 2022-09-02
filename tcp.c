@@ -242,6 +242,7 @@ int main()
                 if ((p->time < (tick - 1000)) || ((tick - p->time) > 9000)) {
                     LOGD("p->time:%d, tick:%d\n", p->time, tick);
                     LOGD("[%s:%hu] is timeout disconnect\n", inet_ntoa(p->addr.sin_addr), ntohs(p->addr.sin_port));
+                    close(p->confd);
                     list_del(pos);
                     free(p);
                     
