@@ -1,11 +1,13 @@
 #include <stdlib.h>
-#include "typedef.h"
-#include "cJSON.h"
-#include "myjson.h"
+//#include "typedef.h"
+//#include "cJSON.h"
+//#include "myjson.h"
 #include <time.h>
 #include <string.h>
-#include "myiconv.h"
+//#include "myiconv.h"
 
+#ifndef __COMMON_H_
+#define __COMMON_H_
 #define HISTROY_NUM     10
 
 typedef struct StockInfo {
@@ -41,3 +43,4 @@ struct fundSet {
     int num;
     fundInfo_s fundInfo[30];
 };
+#endif

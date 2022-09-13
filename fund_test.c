@@ -4,6 +4,10 @@
 #include <string.h>
 #include "include/myxml.h"
 #include <unistd.h>
+#include "include/typedef.h"
+#include "include/cJSON.h"
+#include "include/myjson.h"
+#include "include/myiconv.h"
 
 int f_num = 0;
 long int Get_time() {
@@ -772,8 +776,8 @@ void fundInfopri(fundInfo_s *a) {
         LOGD("%d:%s\n", i, (a+i)->f_code);
     }
 }
-/*
-int main(int argc, char *argv[])
+
+int fundmain(int id, int fd)
 {
     Get_time();
     CURL *curl;
@@ -816,4 +820,4 @@ int main(int argc, char *argv[])
     //sql3_test();
 	return 0;
 }
-*/
+

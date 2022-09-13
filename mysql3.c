@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "include/common.h"
+#include "include/typedef.h"
 
 static int callback(void *NotUsed, int argc, char **argv, char **azColName){
     int i;

@@ -3,6 +3,7 @@
 #include<stdlib.h>
 #include"include/cJSON.h"
 #include "include/common.h"
+#include "include/typedef.h"
 
 cJSON* JsonParse_object(char* src_buf, char* item_name) {
     cJSON *json = cJSON_Parse(src_buf);

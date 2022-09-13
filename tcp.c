@@ -13,6 +13,11 @@
 #include "include/threadpool.h"
 
 #include "include/Msg_handler.h"
+#include <curl/curl.h>
+#include "include/myxml.h"
+#include "include/common.h"
+#include "include/fund_test.h"
+
 #define LINE     10
 #define DEBUG    1
 
@@ -28,10 +33,7 @@
 void taskFund(void *arg) {
     listnode p = *(listnode*)arg;
     printf("thread %d is working, confd:%d\n", p.ID, p.confd);
-    while (1){
-        sleep(1);
-        LOGD("working\r\n");
-    }
+    fundmain(p.ID, p.confd);
 
 }
 
