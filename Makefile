@@ -1,4 +1,4 @@
-LIBS = -lm
+LIBS = -lm -lcurl -lsqlite3 -lxml2 -lncurses -lpthread
 CC = gcc
 LD = gcc
 
@@ -7,6 +7,7 @@ SRCS = $(wildcard $(foreach S,$(SUBDIRS), $S/*.c $S/*.cpp))
 OBJS = $(SRCS:.c = .o)
 
 INCLUDES = $(foreach S,$(SUBDIRS),-I$S)
+INCLUDES += /lib/sqlite
 CCFAGS = -g -Wall -O0 $(INCLUDES) -I/home/ubuntu/esp8266_server/include
 
 TARGET = networt_test

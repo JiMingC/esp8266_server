@@ -10,6 +10,7 @@
 #include "include/linklist.h"
 #include "include/typedef.h"
 #include "include/utf_handle.h"
+#include "include/threadpool.h"
 
 #include "include/Msg_handler.h"
 #define LINE     10
@@ -23,6 +24,16 @@
 #define MEUN_Esp_TFTutfShow     0x31
 #define MEUN_Esp_TFTutfShow_cp  0x32
 #define MEUN_SENDMSG_CLIENT     0x11
+
+void taskFund(void *arg) {
+    listnode p = *(listnode*)arg;
+    printf("thread %d is working, confd:%d\n", p.ID, p.confd);
+    while (1){
+        sleep(1);
+        LOGD("working\r\n");
+    }
+
+}
 
 unsigned char func  = 0;
 unsigned short level = 0;
@@ -88,6 +99,8 @@ unsigned short terminalhandle(unsigned short level, char *msg){
 int main()
 {
     int tick = 0;
+
+    ThreadPool *pool = threadPoolCreate(3, 10, 100);
 	//创建socket套接字
 	int serfd=0;
 	serfd=socket(AF_INET,SOCK_STREAM,0);
@@ -204,6 +217,7 @@ int main()
                 LOGD("new user create fail\n");
             } else {
                 LOGI("[%s:%hu tick:%d]\n", inet_ntoa(new_cli->addr.sin_addr), ntohs(new_cli->addr.sin_port), new_cli->time);
+                threadPoolAdd(pool, taskFund, (void*)new_cli);
                 list_add_tail(&new_cli->list, &head->list);
             }
         }
