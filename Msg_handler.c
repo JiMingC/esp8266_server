@@ -48,7 +48,7 @@ int netparseMsg(net_message_t *pstNetMsg, unsigned char* buf) {
     {
        pstNetMsg->body[i] = buf[i + 8];
     }
-    if (pstNetMsg->enOpcode != EN_MSG_HEARTBEAT){
+    if (pstNetMsg->enOpcode != EN_MSG_HEARTBEAT && pstNetMsg->enOpcode != 0){
         LOGD("0:%x 1:%x 2:%x 3:%x 4:%x 5:%x 6:%x 7:%x\n",
             buf[0],buf[1],buf[2],buf[3],buf[4],buf[5],buf[6],buf[7]);
         pr_netMsg(pstNetMsg);
@@ -227,4 +227,32 @@ int netsendTFTbuf(int fd, unsigned short *TFTbuf, int size) {
         return size;
     } else
         return write(fd, (char*)buf, size+8);
+}
+
+int netsendFundJson(int fd, char* js_body, int size) {
+    unsigned char buf[20000];
+    int pos = 0;
+    int left = 0;
+    buf[0] = 0x0;
+    buf[1] = 0x2;
+    buf[2] = 0x0; //null
+    buf[3] = EN_MSG_ESP_POSTFUNDJSON;
+    buf[4] = 0xFF;
+    buf[5] = 0xEE;
+    buf[6] = size >> 8;
+    buf[7] = size;
+    left = size + 8;
+    LOGD("%d\n", buf[6] << 8 | buf[7]);
+    memcpy(buf+8, js_body, size);
+    LOGD("send finish\n");
+    if (left > 1024) {
+        while (left > 0) {
+            write(fd, (char*)buf + pos, left > 1024 ? 1024 : left);
+            pos += 1024;
+            left -= 1024;
+        }
+
+        return size;
+    } else
+        return write(fd, (char*)buf, size+8); 
 }

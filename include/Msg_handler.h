@@ -27,6 +27,7 @@ typedef enum
     EN_MSG_ESP_TFTSHOW            = 0x12,
     EN_MSG_GET_USRNAME            = 0x78,
     EN_MSG_GIVE_USRNAME           = 0x79,
+    EN_MSG_ESP_POSTFUNDJSON       = 0x90,
     EN_MSG_NONE                   = 0xff,
 }Net_MSG_Opcode_LIST;
 
@@ -61,4 +62,5 @@ void pr();
 int netsendMsg(int fd, char* buf, int len);
 int nethandlerMsg(int confd, net_message_t *srcNetMsg);
 int netsendTFTbuf(int fd, unsigned short *TFTbuf, int size);
+int netsendFundJson(int fd, char* js_body, int size);
 #endif // MSG_HANDLER_H

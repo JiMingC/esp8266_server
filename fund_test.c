@@ -9,6 +9,7 @@
 #include "include/myjson.h"
 #include "include/myiconv.h"
 
+#include "include/Msg_handler.h"
 int f_num = 0;
 long int Get_time() {
     time_t t;
@@ -545,17 +546,18 @@ void fundPriInfoPart1(fundInfo_s *a, int i) {
 
 void fundGetInfoFromXml(fundInfo_s *a, CURL *curl, int num) {
 #if 1
-    printf(CLEAR);
+    //printf(CLEAR);
 
-    fundPriTittle();
+    //fundPriTittle();
     int i, j;
     for (i = 0; i < f_num; i++) {
         if(strlen((a+i)->f_code) != 6)
             return;
         fundGetInfoByCode(curl, (a+i)->f_code);
         
-        fundPriInfoPart1(a, i);
-        fundPriInfoPart2(a, i);
+        //fundPriInfoPart1(a, i);
+        //fundPriInfoPart2(a, i);
+        /*
         if((i+1)%10 == 0) {
             fundPriSummart();
             sleep(25);
@@ -573,6 +575,7 @@ void fundGetInfoFromXml(fundInfo_s *a, CURL *curl, int num) {
             sleep(15);
             printf(CLEAR);
         }
+        */
             
     }
 
@@ -783,6 +786,7 @@ int fundmain(int id, int fd)
     CURL *curl;
 	CURLcode res2;
 	static char str[20480];
+    float total = 0;
 	res2 = curl_global_init(CURL_GLOBAL_ALL);
 	curl = curl_easy_init();
     //fundInfo = calloc(30, sizeof(fundInfo));
@@ -791,33 +795,52 @@ int fundmain(int id, int fd)
     //fundInfopri(fundInfo);
     fundInitFromXml(fundInfo, curl, f_num);
     printf("Finish initing\n");
-    while(1) {
-        fundGetInfoFromXml(fundInfo, curl, f_num);
-        //sleep(15);
-        count = 1;
+    fundGetInfoFromXml(fundInfo, curl, f_num);
+    cJSON* cjson_fundbasic = NULL;
+    cJSON* cjson_fundsub = NULL;
+    cJSON* cjson_fundsubhistory= NULL;
+    /* 创建一个JSON数据对象(链表头结点) */
+    cjson_fundbasic = cJSON_CreateObject();
+    /* 添加一条字符串类型的JSON数据(添加一个链表节点) */
+    cJSON_AddNumberToObject(cjson_fundbasic, "FundNum", f_num);
+    for (int i = 0; i < f_num; i++) {
+        cjson_fundsub = cJSON_CreateObject();
+        cJSON_AddStringToObject(cjson_fundsub, "code", fundInfo[i].f_code);
+        cJSON_AddStringToObject(cjson_fundsub, "name", fundInfo[i].f_name);
+        cJSON_AddNumberToObject(cjson_fundsub, "gain", fundInfo[i].gain);
+        //cJSON_AddNumberToObject(cjson_fundsub, "g", fundInfo[i]->gain);
+        cjson_fundsubhistory = cJSON_CreateArray();
+        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[0]));
+        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[1]));
+        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[2]));
+        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[3]));
+        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[4]));
+        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[5]));
+        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[6]));
+        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[7]));
+        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[8]));
+        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[9]));
+        cJSON_AddItemToObject(cjson_fundsub, "History", cjson_fundsubhistory);
+        char fundsubidx[2];
+        sprintf(fundsubidx, "%d", i);
+        cJSON_AddItemToObject(cjson_fundbasic, fundsubidx, cjson_fundsub);
+        total += fundInfo[i].g_val*fundInfo[i].holders;
     }
+    cJSON_AddNumberToObject(cjson_fundbasic, "Fundtotal", total);
+    //char* js_str = (char*)malloc(20000);
+    char *js_str = cJSON_Print(cjson_fundbasic);
+    printf("%s\n", js_str);
+    printf("cjson printf finish\n");
+    netsendFundJson(fd, js_str, strlen(js_str));
+    //free(js_str);
+    cJSON_Delete(cjson_fundbasic);
+    //while(1) {
+    //    fundGetInfoFromXml(fundInfo, curl, f_num);
+        //sleep(15);
+    //    count = 1;
+    //}
     //fundGetInfo(curl);
 	curl_global_cleanup();
-#if 0
-	if(curl2) 
-	{
-        //fp2=fopen("UsefullInfo.json", "w+");
-        //curl_easy_setopt(curl2, CURLOPT_URL, "http://fund.eastmoney.com/pingzhongdata/001186.js?v=20160518155842");//这是请求的url
-        curl_easy_setopt(curl2, CURLOPT_URL, "http://fundgz.1234567.com.cn/js/001186.js?rt=1463558676006");//这是请求的url
-        //curl_easy_setopt(curl2, CURLOPT_POSTFIELDS, "username=root@pam&password=nicaiba_88");//这是post的内容
-        //curl_easy_setopt(curl2, CURLOPT_HTTPHEADER, list);//若需要带头，则写进list
-        curl_easy_setopt(curl2, CURLOPT_SSL_VERIFYPEER, 0);//-k
-        curl_easy_setopt(curl2, CURLOPT_SSL_VERIFYHOST, 0);//-k
-        //curl_easy_setopt(curl2, CURLOPT_VERBOSE, 1);//这是请求过程的调试log
-        curl_easy_setopt(curl2, CURLOPT_WRITEFUNCTION, copy_data);//数据请求到以后的回调函数
-        curl_easy_setopt(curl2, CURLOPT_WRITEDATA, str);//选择输出到字符串
-        //curl_easy_setopt(curl2, CURLOPT_WRITEDATA, fp2);//选择输出到文件
-        res2 = curl_easy_perform(curl2);//这里是执行请求
-        curl_easy_cleanup(curl2);
-        //fclose(fp2);
-	}
-#endif
-    //sql3_test();
 	return 0;
 }
 
