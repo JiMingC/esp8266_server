@@ -4,4 +4,5 @@
 void fundInitFromXml(fundInfo_s *a, CURL *curl, int num);
 void fundGetInfoFromXml(fundInfo_s *a, CURL *curl, int num);
 int fundmain(int id, int fd);
+int fundInfoInit();
 #endif

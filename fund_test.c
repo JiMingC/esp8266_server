@@ -8,9 +8,12 @@
 #include "include/cJSON.h"
 #include "include/myjson.h"
 #include "include/myiconv.h"
+#include "include/utf_handle.h"
 
 #include "include/Msg_handler.h"
 int f_num = 0;
+char *js_str;
+
 long int Get_time() {
     time_t t;
     time(&t);
@@ -780,67 +783,106 @@ void fundInfopri(fundInfo_s *a) {
     }
 }
 
+int float2intLevel(float val) {
+    int ret = 0;
+    if (val > 0) {
+        ret = (int)(val*10 + 50);
+    } else if (val < 0) {
+        ret = (int)(-val*10);
+    }
+    return ret;
+}
+
+
+/* return fund_num */
+int fundInfoInit() {
+    CURL *curl;
+	CURLcode res2;
+    static char str[20480];
+	res2 = curl_global_init(CURL_GLOBAL_ALL);
+	curl = curl_easy_init();
+    f_num = xmlLoadInfo(fundInfo);
+    printf("Find %d funders, initing...\n", f_num);
+    
+    fundInitFromXml(fundInfo, curl, f_num);
+    printf("Finish initing\n");
+	curl_global_cleanup();
+    return f_num;
+}
+
 int fundmain(int id, int fd)
 {
-    Get_time();
     CURL *curl;
 	CURLcode res2;
 	static char str[20480];
     float total = 0;
 	res2 = curl_global_init(CURL_GLOBAL_ALL);
 	curl = curl_easy_init();
-    //fundInfo = calloc(30, sizeof(fundInfo));
-    f_num = xmlLoadInfo(fundInfo);
-    printf("Find %d funders, initing...\n", f_num);
-    //fundInfopri(fundInfo);
-    fundInitFromXml(fundInfo, curl, f_num);
-    printf("Finish initing\n");
-    fundGetInfoFromXml(fundInfo, curl, f_num);
-    cJSON* cjson_fundbasic = NULL;
-    cJSON* cjson_fundsub = NULL;
-    cJSON* cjson_fundsubhistory= NULL;
-    /* 创建一个JSON数据对象(链表头结点) */
-    cjson_fundbasic = cJSON_CreateObject();
-    /* 添加一条字符串类型的JSON数据(添加一个链表节点) */
-    cJSON_AddNumberToObject(cjson_fundbasic, "FundNum", f_num);
-    for (int i = 0; i < f_num; i++) {
-        cjson_fundsub = cJSON_CreateObject();
-        cJSON_AddStringToObject(cjson_fundsub, "code", fundInfo[i].f_code);
-        cJSON_AddStringToObject(cjson_fundsub, "name", fundInfo[i].f_name);
-        cJSON_AddNumberToObject(cjson_fundsub, "gain", fundInfo[i].gain);
-        //cJSON_AddNumberToObject(cjson_fundsub, "g", fundInfo[i]->gain);
-        cjson_fundsubhistory = cJSON_CreateArray();
-        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[0]));
-        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[1]));
-        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[2]));
-        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[3]));
-        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[4]));
-        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[5]));
-        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[6]));
-        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[7]));
-        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[8]));
-        cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(fundInfo[i].histroy[9]));
-        cJSON_AddItemToObject(cjson_fundsub, "History", cjson_fundsubhistory);
-        char fundsubidx[2];
-        sprintf(fundsubidx, "%d", i);
-        cJSON_AddItemToObject(cjson_fundbasic, fundsubidx, cjson_fundsub);
-        total += fundInfo[i].g_val*fundInfo[i].holders;
+    //f_num = xmlLoadInfo(fundInfo);
+    //fundInitFromXml(fundInfo, curl, f_num);
+
+    unsigned short TFTbuf[MSGBUF_MAX] = {0};
+    int len = 0;
+    for (int i = 0; i < 4; i++) {
+        len = utfToTFTbuf(fundInfo[i].f_name, TFTbuf+88*i, 1, 0, i*32+8, 5);
     }
-    cJSON_AddNumberToObject(cjson_fundbasic, "Fundtotal", total);
-    //char* js_str = (char*)malloc(20000);
-    char *js_str = cJSON_Print(cjson_fundbasic);
-    printf("%s\n", js_str);
-    printf("cjson printf finish\n");
-    netsendFundJson(fd, js_str, strlen(js_str));
-    //free(js_str);
-    cJSON_Delete(cjson_fundbasic);
-    //while(1) {
-    //    fundGetInfoFromXml(fundInfo, curl, f_num);
-        //sleep(15);
-    //    count = 1;
-    //}
-    //fundGetInfo(curl);
-	curl_global_cleanup();
-	return 0;
+    netsendMuxFundTFTbuf(fd, TFTbuf, 88*2*4, 4);
+    
+    while(1) {
+        fundGetInfoFromXml(fundInfo, curl, f_num);
+        count = 1;  //need!!!!!!!!!!!
+        cJSON* cjson_fundbasic = NULL;
+        cJSON* cjson_fundsub = NULL;
+        cJSON* cjson_fundsubhistory = NULL;
+        cJSON* cjson_fundTFTdata = NULL;
+        /* 创建一个JSON数据对象(链表头结点) */
+        cjson_fundbasic = cJSON_CreateObject();
+        /* 添加一条字符串类型的JSON数据(添加一个链表节点) */
+        cJSON_AddNumberToObject(cjson_fundbasic, "FundNum", 4);
+        int PN = 0;
+        for (int i = 0; i < 4; i++) {
+            cjson_fundsub = cJSON_CreateObject();
+            //cJSON_AddStringToObject(cjson_fundsub, "code", fundInfo[i].f_code);
+            //cJSON_AddStringToObject(cjson_fundsub, "name", fundInfo[i].f_name);
+            cJSON_AddNumberToObject(cjson_fundsub, "gain", (int)(fundInfo[i].gain*100));
+            if (fundInfo[i].gain > 0) {
+                PN = 2;
+            } else if (fundInfo[i].gain < 0) {
+                PN = 1;
+            }
+            cJSON_AddNumberToObject(cjson_fundsub, "PN", PN);
+            //cJSON_AddNumberToObject(cjson_fundsub, "g", fundInfo[i]->gain);
+            cjson_fundsubhistory = cJSON_CreateArray();
+
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i].histroy[0])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i].histroy[1])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i].histroy[2])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i].histroy[3])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i].histroy[4])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i].histroy[5])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i].histroy[6])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i].histroy[7])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i].histroy[8])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i].histroy[9])));
+            //cJSON_AddItemToObject(cjson_fundsub, "History", cjson_fundsubhistory);
+
+            char fundsubidx[2];
+            sprintf(fundsubidx, "%d", i);
+            cJSON_AddItemToObject(cjson_fundbasic, fundsubidx, cjson_fundsub);
+            total += fundInfo[i].g_val*fundInfo[i].holders;
+        }
+        cJSON_AddNumberToObject(cjson_fundbasic, "Fundtotal", total);
+
+        js_str = cJSON_Print(cjson_fundbasic);
+        printf("%s\n", js_str);
+        printf("cjson printf finish\n");
+        netsendFundJson(fd, js_str, strlen(js_str));
+        sleep(3);
+        free(js_str);
+        cJSON_Delete(cjson_fundbasic);
+    }
+
+    curl_global_cleanup();
+    return 0;
 }
 

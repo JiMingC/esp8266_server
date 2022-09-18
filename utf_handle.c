@@ -196,7 +196,7 @@ void printfGB2312(int idx) {
 #define BACK_COLOR  0x0000
 #define FONTS_H     16
 #define FONTS_W     16
-int fullGB2132buf(unsigned short* TFTbuf, int *table, short array_size, int flag) {
+int fullGB2132buf(unsigned short* TFTbuf, int *table, short array_size, int flag, int x_start, int y_start) {
     if (TFTbuf == NULL || table == NULL) {
         LOGE("\n");
         return 0;
@@ -204,14 +204,14 @@ int fullGB2132buf(unsigned short* TFTbuf, int *table, short array_size, int flag
     unsigned char c1, c2;
     int offset = 0;
     if (!flag) {
-        TFTbuf[0] = 0xaa; //header+opt
-        TFTbuf[1] = array_size*16; //width
-        TFTbuf[2] = 16; //high
-        TFTbuf[3] = 0;  //buf total size
-        TFTbuf[4] = 0xFFFF; //point_color
-        TFTbuf[5] = 0x0000; //back_color
-        TFTbuf[6] = 0x0000; //start_x
-        TFTbuf[7] = 0x0000; //start_y
+        TFTbuf[0] = 0xaa;           //header+opt
+        TFTbuf[1] = array_size*16;  //width
+        TFTbuf[2] = 16;             //high
+        TFTbuf[3] = 0;              //buf total size
+        TFTbuf[4] = 0xFFFF;         //point_color
+        TFTbuf[5] = 0x0000;         //back_color
+        TFTbuf[6] = x_start;         //start_x
+        TFTbuf[7] = x_start;         //start_y
         for (int i = 0; i < array_size; i++) {
             for (int j = 0; j < FONTS_H; j++) {
                 c1 = bin_data[table[i] + j * 2];
@@ -245,8 +245,8 @@ int fullGB2132buf(unsigned short* TFTbuf, int *table, short array_size, int flag
         TFTbuf[3] = 0;  //buf total size
         TFTbuf[4] = 0xFFFF; //point_color
         TFTbuf[5] = 0x0000; //back_color
-        TFTbuf[6] = 0x0000; //start_x
-        TFTbuf[7] = 0x0000; //start_y
+        TFTbuf[6] = x_start; //start_x
+        TFTbuf[7] = y_start; //start_y
         for (int i = 0; i < array_size; i++) {
             for (int j = 0; j < FONTS_H; j++) {
                 c1 = bin_data[table[i] + j * 2];
@@ -291,7 +291,7 @@ void printfGB2132buf(unsigned short *TFTbuf,int len, int flag) {
     }
 }
 
-int utfToTFTbuf(unsigned char *msg, unsigned short *TFTbuf, bool iscompress) {
+int utfToTFTbuf(unsigned char *msg, unsigned short *TFTbuf, bool iscompress, int x, int y, int num) {
     if (msg == NULL || TFTbuf == NULL) {
         return 0;
     }
@@ -301,8 +301,8 @@ int utfToTFTbuf(unsigned char *msg, unsigned short *TFTbuf, bool iscompress) {
     unsigned short gb_code;
     int table_idx[10] = {0};
     short cc_num= 0;
-
-    for (short i = 0; i < strlen(msg);) {
+    int msglen = strlen(msg) > num*3 ? num*3:strlen(msg);
+    for (short i = 0; i < msglen;) {
         short len = 0;
         len = UTF8ToUnicode(msg + i, &buffer);
         LOGD("len:%d unicode:0x%x\n", len, buffer);
@@ -326,8 +326,9 @@ int utfToTFTbuf(unsigned char *msg, unsigned short *TFTbuf, bool iscompress) {
     }
     printf("\n");
 #endif 
-    int ret = fullGB2132buf(TFTbuf, table_idx, cc_num, iscompress);
+    int ret = fullGB2132buf(TFTbuf, table_idx, cc_num, iscompress, x, y);
 
+    LOGD("TFTbuf size:%d\n", ret);
     printfGB2132buf(TFTbuf,cc_num, iscompress);
     return ret;
 }

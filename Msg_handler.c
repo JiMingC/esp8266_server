@@ -229,6 +229,58 @@ int netsendTFTbuf(int fd, unsigned short *TFTbuf, int size) {
         return write(fd, (char*)buf, size+8);
 }
 
+int netsendFundTFTbuf(int fd, unsigned short *TFTbuf, int size) {
+    unsigned char buf[MSGBUF_MAX];
+    int pos = 0;
+    int left = 0;
+    buf[0] = 0x0;
+    buf[1] = 0x2;
+    buf[2] = 0x0; //null
+    buf[3] = EN_MSG_ESP_POSTFUNDTFT;
+    buf[4] = 0xFF;
+    buf[5] = 0xEE;
+    buf[6] = size >> 8;
+    buf[7] = size;
+    left = size + 8;
+    LOGD("%d\n", buf[6] << 8 | buf[7]);
+    memcpy(buf+8, (unsigned char*)TFTbuf, size);
+    if (left > 1024) {
+        while (left > 0) {
+            write(fd, (char*)buf + pos, left > 1024 ? 1024 : left);
+            pos += 1024;
+            left -= 1024;
+        }
+        return size;
+    } else
+        return write(fd, (char*)buf, size+8);
+}
+
+int netsendMuxFundTFTbuf(int fd, unsigned short *TFTbuf, int size, int num) {
+    unsigned char buf[MSGBUF_MAX];
+    int pos = 0;
+    int left = 0;
+    buf[0] = 0x0;
+    buf[1] = 0x2;
+    buf[2] = 0x0; //null
+    buf[3] = EN_MSG_ESP_POSTMUXFUNDTFT;
+    buf[4] = 0xFF;
+    buf[5] = 0xEE;
+    buf[6] = size >> 8; // only body len, not include head
+    buf[7] = size;
+    left = size + 8;
+    LOGD("%d\n", buf[6] << 8 | buf[7]);
+    memcpy(buf+8, (unsigned char*)TFTbuf, size);
+    if (left > 1024) {
+        while (left > 0) {
+            write(fd, (char*)buf + pos, left > 1024 ? 1024 : left);
+            pos += 1024;
+            left -= 1024;
+        }
+        return size;
+    } else
+        return write(fd, (char*)buf, size+8);
+}
+
 int netsendFundJson(int fd, char* js_body, int size) {
     unsigned char buf[20000];
     int pos = 0;
@@ -244,7 +296,6 @@ int netsendFundJson(int fd, char* js_body, int size) {
     left = size + 8;
     LOGD("%d\n", buf[6] << 8 | buf[7]);
     memcpy(buf+8, js_body, size);
-    LOGD("send finish\n");
     if (left > 1024) {
         while (left > 0) {
             write(fd, (char*)buf + pos, left > 1024 ? 1024 : left);
@@ -252,6 +303,7 @@ int netsendFundJson(int fd, char* js_body, int size) {
             left -= 1024;
         }
 
+        LOGD("send finish\n");
         return size;
     } else
         return write(fd, (char*)buf, size+8); 

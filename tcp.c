@@ -30,7 +30,12 @@
 #define MEUN_Esp_TFTutfShow_cp  0x32
 #define MEUN_SENDMSG_CLIENT     0x11
 
-void taskFund(void *arg) {
+static bool fundInfoNeedInit = 1;
+
+void taskFundfix(void *arg) {
+    if (fundInfoNeedInit) {
+        fundInfoInit();
+    }
     listnode p = *(listnode*)arg;
     printf("thread %d is working, confd:%d\n", p.ID, p.confd);
     fundmain(p.ID, p.confd);
@@ -219,7 +224,7 @@ int main()
                 LOGD("new user create fail\n");
             } else {
                 LOGI("[%s:%hu tick:%d]\n", inet_ntoa(new_cli->addr.sin_addr), ntohs(new_cli->addr.sin_port), new_cli->time);
-                threadPoolAdd(pool, taskFund, (void*)new_cli);
+                threadPoolAdd(pool, taskFundfix, (void*)new_cli);
                 list_add_tail(&new_cli->list, &head->list);
             }
         }
@@ -314,12 +319,12 @@ int main()
                         if (func == MEUN_Esp_TFTutfShow) {
                             printf("*Input your (utf)msg to ID:0x%4x(q! for exit):*\n",t->ID);
                             unsigned short TFTbuf[MSGBUF_MAX];
-                            int len = utfToTFTbuf(msg, TFTbuf, 0);
+                            int len = utfToTFTbuf(msg, TFTbuf, 0, 0, 0, 8);
                             netsendTFTbuf(t->confd, TFTbuf, sizeof(short)*len);
                         } else if (func == MEUN_Esp_TFTutfShow_cp) {
                             printf("*Input your (utf)msg to ID:0x%4x(compress)(q! for exit):*\n",t->ID);
                             unsigned short TFTbuf[MSGBUF_MAX];
-                            int len = utfToTFTbuf(msg, TFTbuf, 1);
+                            int len = utfToTFTbuf(msg, TFTbuf, 1, 0, 0, 8);
                             for (int i = 0; i < len; i++) {
                                 printf("%d 0x%x\n", i , TFTbuf[i]);
                             }
