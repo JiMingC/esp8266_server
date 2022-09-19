@@ -329,6 +329,6 @@ int utfToTFTbuf(unsigned char *msg, unsigned short *TFTbuf, bool iscompress, int
     int ret = fullGB2132buf(TFTbuf, table_idx, cc_num, iscompress, x, y);
 
     LOGD("TFTbuf size:%d\n", ret);
-    printfGB2132buf(TFTbuf,cc_num, iscompress);
+    //printfGB2132buf(TFTbuf,cc_num, iscompress);
     return ret;
 }

@@ -11,8 +11,6 @@
 #include "include/utf_handle.h"
 
 #include "include/Msg_handler.h"
-int f_num = 0;
-char *js_str;
 
 long int Get_time() {
     time_t t;
@@ -24,9 +22,7 @@ long int Get_time() {
     return t;
 }
 
-fundInfo_s fundInfo[30];
-char data_buf[1024];
-static int count = 1;
+//fundInfo_s fundInfo[30];
 //输出到字符串再打印到屏幕上
 ssize_t write_data(void *ptr, size_t size, size_t nmemb, void *stream)
 {
@@ -60,6 +56,7 @@ size_t copy_data(void *ptr, size_t size, size_t nmemb, void *stream) {
 
 int fundGetDataByCode(CURL *curl, char* str, char *buf) {
     char tmp_str[2048] = {0};
+    char data_buf[1024];
     sprintf(tmp_str, "http://fund.eastmoney.com/pingzhongdata/%s.js?v=20160518155842", str);
     if (curl) {
         curl_easy_setopt(curl, CURLOPT_URL, tmp_str);
@@ -165,7 +162,7 @@ void fundPriTittle(void) {
     printf("-------------------------------------------------------------------------------------------------------------------------------------\n");
 }
 
-void fundPriSummart(void) {
+void fundPriSummart(fundInfo_s *fundInfo, int f_num) {
     int i = 0;
     float total = 0;
     for(i = 0; i < f_num; i++) {
@@ -205,7 +202,7 @@ int fundGetCurlData(CURL *curl, char* curl_addr) {
     return 0;
 }
 
-int fundStockDataparse(char* src_data, int fund_idx, int stock_idx) {
+int fundStockDataparse(fundInfo_s *fundInfo,char* src_data, int fund_idx, int stock_idx) {
     char data[38][50];
     memset(data, 0, 38*50);
     int i = 0;
@@ -258,7 +255,7 @@ int fundStockDataparse(char* src_data, int fund_idx, int stock_idx) {
     return 0;
 }
 
-void fundInitStockData(CURL *curl, char* code, int fund_idx) {
+void fundInitStockData(fundInfo_s *fundInfo, CURL *curl, char* code, int fund_idx) {
     char curl_addr[2048] = {0};
     int i = 0;
 
@@ -285,14 +282,14 @@ void fundInitStockData(CURL *curl, char* code, int fund_idx) {
         //LOGD("%s\n", curl_addr);
         fundGetCurlData(curl, curl_addr);
         int num = curlDataToJson(res_buf, src_js, 2, NULL);
-        fundStockDataparse(src_js, fund_idx, i);
+        fundStockDataparse(fundInfo, src_js, fund_idx, i);
     }
     free(src_js);
     memset(res_buf, 0, shift);
     shift = 0;
 }
 
-void fundInitByCode(CURL *curl, char* code, int fund_idx) {
+void fundInitByCode(fundInfo_s *fundInfo, CURL *curl, char* code, int fund_idx) {
     cJSON *js, *node;
     char curl_addr[2048] = {0};
     sprintf(curl_addr, "http://fund.eastmoney.com/pingzhongdata/%s.js?v=20160518155842", code);
@@ -354,7 +351,7 @@ void fundInitByCode(CURL *curl, char* code, int fund_idx) {
 
 }
 
-void fundGetInfoByCode(CURL *curl, char* code) {
+void fundGetInfoByCode(fundInfo_s *fundInfo, CURL *curl, char* code, int count) {
     cJSON *js;
     char curl_addr[2048] = {0};
     //double a, b, c;
@@ -369,21 +366,20 @@ void fundGetInfoByCode(CURL *curl, char* code) {
         free(src_js);
         return;
     }
-    //printf("%3d\t", count);
     js = JsonParse_object(src_js, "fundcode");
     //printf("%s\t", js->valuestring);
     js = JsonParse_object(src_js, "name");
-    if (fundInfo[count - 1].f_name[0] == '\0')
-        strcpy(fundInfo[count - 1].f_name, js->valuestring);
+    if (fundInfo[count].f_name[0] == '\0')
+        strcpy(fundInfo[count].f_name, js->valuestring);
     //printf("%-35s\t", js->valuestring);
     js = JsonParse_object(src_js, "dwjz");
-    fundInfo[count - 1].l_val = (float) atof(js->valuestring);
+    fundInfo[count].l_val = (float) atof(js->valuestring);
     //printf("%s\t", js->valuestring);
     js = JsonParse_object(src_js, "gsz");
-    fundInfo[count - 1].c_val = (float) atof(js->valuestring);
+    fundInfo[count].c_val = (float) atof(js->valuestring);
     //printf("%s\t\t\t\t\t", js->valuestring);
-    fundInfo[count - 1].g_val_l = fundInfo[count - 1].g_val;
-    fundInfo[count - 1].g_val = fundInfo[count - 1].c_val - fundInfo[count - 1].l_val;
+    fundInfo[count].g_val_l = fundInfo[count].g_val;
+    fundInfo[count].g_val = fundInfo[count].c_val - fundInfo[count].l_val;
     js = JsonParse_object(src_js, "gszzl");
     float gszzl = (float) atof(js->valuestring);
     /*
@@ -398,10 +394,9 @@ void fundGetInfoByCode(CURL *curl, char* code) {
         else
             printf(GREEN);
     */
-    fundInfo[count - 1].gain = (float)atof(js->valuestring);
-    fundInfo[count - 1].total = (int)(fundInfo[count - 1].holders * (fundInfo[count - 1].l_val - fundInfo[count - 1].bid_price));
+    fundInfo[count].gain = (float)atof(js->valuestring);
+    fundInfo[count].total = (int)(fundInfo[count].holders * (fundInfo[count].l_val - fundInfo[count].bid_price));
     //printf("%s%%  ", js->valuestring);
-    count++;
     free(src_js);
 }
 
@@ -432,13 +427,13 @@ char* code[30] = {
 };
 
 #define CODE_NUM 30
-void fundGetInfo(CURL *curl) {
+void fundGetInfo(fundInfo_s *fundInfo, CURL *curl) {
     fundPriTittle();
     int i = 0;
     for(i = 0; i < CODE_NUM; i++) {
         if (strlen(code[i]) != 6)
             return;
-        fundGetInfoByCode(curl, code[i]);
+        fundGetInfoByCode(fundInfo, curl, code[i], i);
     }
 }
 
@@ -447,7 +442,7 @@ void fundInitFromXml(fundInfo_s *a, CURL *curl, int num) {
     for(i = 0; i < num; i++) {
         if(strlen((a+i)->f_code) != 6)
             continue;
-        fundInitByCode(curl, (a+i)->f_code, i);
+        fundInitByCode(a, curl, (a+i)->f_code, i);
         //fundInitStockData(curl, (a+i)->f_code, i);
     }
 }
@@ -547,7 +542,7 @@ void fundPriInfoPart1(fundInfo_s *a, int i) {
     //--------------------------------LINE 1 END
 }
 
-void fundGetInfoFromXml(fundInfo_s *a, CURL *curl, int num) {
+void fundGetInfoFromXml(fundInfo_s *a, CURL *curl, int f_num) {
 #if 1
     //printf(CLEAR);
 
@@ -556,7 +551,7 @@ void fundGetInfoFromXml(fundInfo_s *a, CURL *curl, int num) {
     for (i = 0; i < f_num; i++) {
         if(strlen((a+i)->f_code) != 6)
             return;
-        fundGetInfoByCode(curl, (a+i)->f_code);
+        fundGetInfoByCode(a, curl, (a+i)->f_code, i);
         
         //fundPriInfoPart1(a, i);
         //fundPriInfoPart2(a, i);
@@ -691,7 +686,7 @@ void fundGetInfoFromXml(fundInfo_s *a, CURL *curl, int num) {
         //LOGD("%d %s\n", i, (a+i)->f_code);
         if(strlen((a+i)->f_code) != 6)
             continue;
-        fundGetInfoByCode(curl, (a+i)->f_code);
+        fundGetInfoByCode(curl, (a+i)->f_code. i);
         if((a+i)->g_val > 0 )
                 printf("+");
         printf("%5.4f  ",  (a+i)->g_val);
@@ -795,7 +790,8 @@ int float2intLevel(float val) {
 
 
 /* return fund_num */
-int fundInfoInit() {
+int fundInfoInit(fundInfo_s *fundInfo) {
+    int f_num = 0;
     CURL *curl;
 	CURLcode res2;
     static char str[20480];
@@ -810,12 +806,15 @@ int fundInfoInit() {
     return f_num;
 }
 
-int fundmain(int id, int fd)
+#define PAGE_FUNDNUM    4
+
+int fundfix(fundInfo_s *fundInfo, int id, int fd, int f_num)
 {
     CURL *curl;
 	CURLcode res2;
 	static char str[20480];
     float total = 0;
+    char *js_str;
 	res2 = curl_global_init(CURL_GLOBAL_ALL);
 	curl = curl_easy_init();
     //f_num = xmlLoadInfo(fundInfo);
@@ -823,14 +822,14 @@ int fundmain(int id, int fd)
 
     unsigned short TFTbuf[MSGBUF_MAX] = {0};
     int len = 0;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < PAGE_FUNDNUM; i++) {
         len = utfToTFTbuf(fundInfo[i].f_name, TFTbuf+88*i, 1, 0, i*32+8, 5);
     }
-    netsendMuxFundTFTbuf(fd, TFTbuf, 88*2*4, 4);
+    netsendMuxFundTFTbuf(fd, TFTbuf, 88*2*PAGE_FUNDNUM, PAGE_FUNDNUM);
     
     while(1) {
         fundGetInfoFromXml(fundInfo, curl, f_num);
-        count = 1;  //need!!!!!!!!!!!
+        //count = 1;  //need!!!!!!!!!!!
         cJSON* cjson_fundbasic = NULL;
         cJSON* cjson_fundsub = NULL;
         cJSON* cjson_fundsubhistory = NULL;
@@ -838,9 +837,9 @@ int fundmain(int id, int fd)
         /* 创建一个JSON数据对象(链表头结点) */
         cjson_fundbasic = cJSON_CreateObject();
         /* 添加一条字符串类型的JSON数据(添加一个链表节点) */
-        cJSON_AddNumberToObject(cjson_fundbasic, "FundNum", 4);
+        cJSON_AddNumberToObject(cjson_fundbasic, "FundNum", PAGE_FUNDNUM);
         int PN = 0;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < PAGE_FUNDNUM; i++) {
             cjson_fundsub = cJSON_CreateObject();
             //cJSON_AddStringToObject(cjson_fundsub, "code", fundInfo[i].f_code);
             //cJSON_AddStringToObject(cjson_fundsub, "name", fundInfo[i].f_name);
@@ -886,3 +885,80 @@ int fundmain(int id, int fd)
     return 0;
 }
 
+int fundroll(fundInfo_s *fundInfo, int id, int fd, int f_num)
+{
+    CURL *curl;
+	CURLcode res2;
+	static char str[20480];
+    float total = 0;
+    char *js_str;
+	res2 = curl_global_init(CURL_GLOBAL_ALL);
+	curl = curl_easy_init();
+    
+    int page = 0;
+    while(1) {
+        unsigned short TFTbuf[MSGBUF_MAX] = {0};
+        int len = 0;
+        for (int i = 0; i < PAGE_FUNDNUM; i++) {
+            len = utfToTFTbuf(fundInfo[i + PAGE_FUNDNUM * page].f_name, TFTbuf+88*i, 1, 0, i*32+8, 5);
+        }
+        netsendMuxFundTFTbuf(fd, TFTbuf, 88*2*PAGE_FUNDNUM, PAGE_FUNDNUM);
+
+        fundGetInfoFromXml(fundInfo, curl, f_num);
+        //count = 1;  //need!!!!!!!!!!!
+        cJSON* cjson_fundbasic = NULL;
+        cJSON* cjson_fundsub = NULL;
+        cJSON* cjson_fundsubhistory = NULL;
+        cJSON* cjson_fundTFTdata = NULL;
+        /* 创建一个JSON数据对象(链表头结点) */
+        cjson_fundbasic = cJSON_CreateObject();
+        /* 添加一条字符串类型的JSON数据(添加一个链表节点) */
+        cJSON_AddNumberToObject(cjson_fundbasic, "FundNum", (f_num - page *PAGE_FUNDNUM) > PAGE_FUNDNUM ? PAGE_FUNDNUM : (f_num - page *PAGE_FUNDNUM));
+        int PN = 0;
+        for (int i = 0; i < PAGE_FUNDNUM; i++) {
+            cjson_fundsub = cJSON_CreateObject();
+            //cJSON_AddStringToObject(cjson_fundsub, "code", fundInfo[i].f_code);
+            //cJSON_AddStringToObject(cjson_fundsub, "name", fundInfo[i].f_name);
+            cJSON_AddNumberToObject(cjson_fundsub, "gain", (int)(fundInfo[i + PAGE_FUNDNUM * page].gain*100));
+            if (fundInfo[i + PAGE_FUNDNUM * page].gain > 0) {
+                PN = 2;
+            } else if (fundInfo[i + PAGE_FUNDNUM * page].gain < 0) {
+                PN = 1;
+            }
+            cJSON_AddNumberToObject(cjson_fundsub, "PN", PN);
+            //cJSON_AddNumberToObject(cjson_fundsub, "g", fundInfo[i]->gain);
+            cjson_fundsubhistory = cJSON_CreateArray();
+
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i + PAGE_FUNDNUM * page].histroy[0])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i + PAGE_FUNDNUM * page].histroy[1])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i + PAGE_FUNDNUM * page].histroy[2])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i + PAGE_FUNDNUM * page].histroy[3])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i + PAGE_FUNDNUM * page].histroy[4])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i + PAGE_FUNDNUM * page].histroy[5])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i + PAGE_FUNDNUM * page].histroy[6])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i + PAGE_FUNDNUM * page].histroy[7])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i + PAGE_FUNDNUM * page].histroy[8])));
+            cJSON_AddItemToArray(cjson_fundsubhistory, cJSON_CreateNumber(float2intLevel(fundInfo[i + PAGE_FUNDNUM * page].histroy[9])));
+            //cJSON_AddItemToObject(cjson_fundsub, "History", cjson_fundsubhistory);
+
+            char fundsubidx[2];
+            sprintf(fundsubidx, "%d", i);
+            cJSON_AddItemToObject(cjson_fundbasic, fundsubidx, cjson_fundsub);
+            total += fundInfo[i + PAGE_FUNDNUM * page].g_val*fundInfo[i + PAGE_FUNDNUM * page].holders;
+        }
+        cJSON_AddNumberToObject(cjson_fundbasic, "Fundtotal", total);
+
+        js_str = cJSON_Print(cjson_fundbasic);
+        printf("%s\n", js_str);
+        printf("cjson printf finish\n");
+        netsendFundJson(fd, js_str, strlen(js_str));
+        page = (page+1) % ((f_num%page) ? f_num/PAGE_FUNDNUM + 1 : f_num/PAGE_FUNDNUM ) ;
+        printf("page:%d %d\n", page, 3);
+        sleep(5);
+        free(js_str);
+        cJSON_Delete(cjson_fundbasic);
+    }
+
+    curl_global_cleanup();
+    return 0;
+}

@@ -21,7 +21,7 @@
 #define LINE     10
 #define DEBUG    1
 
-#define TCP_PORT    7070
+#define TCP_PORT    7071
 
 #define MEUN_HOME               0x0
 #define MEUN_SENDMSG            0x1
@@ -33,13 +33,27 @@
 static bool fundInfoNeedInit = 1;
 
 void taskFundfix(void *arg) {
-    if (fundInfoNeedInit) {
-        fundInfoInit();
-    }
+    int f_num;
+    fundInfo_s fundInfo[30];
+    //if (fundInfoNeedInit) {
+        f_num = fundInfoInit(fundInfo);
+    //}
     listnode p = *(listnode*)arg;
     printf("thread %d is working, confd:%d\n", p.ID, p.confd);
-    fundmain(p.ID, p.confd);
+    fundfix(fundInfo,p.ID, p.confd, f_num);
 
+}
+
+void taskFundroll(void *arg) {
+    int f_num;
+    fundInfo_s fundInfo[30];
+    //if (fundInfoNeedInit) {
+        f_num = fundInfoInit(fundInfo);
+    //}
+    listnode p = *(listnode*)arg;
+    printf("thread %d is working, confd:%d\n", p.ID, p.confd);
+    fundroll(fundInfo, p.ID, p.confd, f_num);
+    
 }
 
 unsigned char func  = 0;
@@ -224,7 +238,7 @@ int main()
                 LOGD("new user create fail\n");
             } else {
                 LOGI("[%s:%hu tick:%d]\n", inet_ntoa(new_cli->addr.sin_addr), ntohs(new_cli->addr.sin_port), new_cli->time);
-                threadPoolAdd(pool, taskFundfix, (void*)new_cli);
+                threadPoolAdd(pool, taskFundroll, (void*)new_cli);
                 list_add_tail(&new_cli->list, &head->list);
             }
         }
