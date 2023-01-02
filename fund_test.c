@@ -952,7 +952,8 @@ int fundroll(fundInfo_s *fundInfo, int id, int fd, int f_num)
         printf("%s\n", js_str);
         printf("cjson printf finish\n");
         netsendFundJson(fd, js_str, strlen(js_str));
-        page = (page+1) % ((f_num%page) ? f_num/PAGE_FUNDNUM + 1 : f_num/PAGE_FUNDNUM ) ;
+        //page = (page+1) % ((f_num%PAGE_FUNDNUM) ? ((f_num >> 2) + 1) : f_num/PAGE_FUNDNUM ) ;
+        page = (page+1) % 3 ;
         printf("page:%d %d\n", page, 3);
         sleep(5);
         free(js_str);
